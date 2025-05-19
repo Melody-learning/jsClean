@@ -21,14 +21,16 @@
             text-align: center;
             color: #333;
         }
-        textarea {
+        textarea { /* General textarea style */
             width: 98%;
-            height: 150px;
             margin-bottom: 10px;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
+        }
+        #jsonDataInput { /* Specific for input */
+             height: 150px;
         }
         button {
             display: block;
@@ -44,15 +46,13 @@
         button:hover {
             background-color: #0056b3;
         }
-        #outputArea {
-            margin-top: 20px;
-            white-space: pre-wrap; /* 保留换行符和空格 */
+        #outputArea { /* Style for the output textarea */
+            margin-top: 10px; /* Adjusted margin */
+            white-space: pre-wrap;
             background-color: #e9e9e9;
-            padding: 10px;
-            border-radius: 4px;
-            min-height: 100px;
-            border: 1px solid #ccc;
-            font-family: monospace; /* 等宽字体对对齐很重要 */
+            min-height: 200px; /* Increased min-height for better visibility */
+            font-family: monospace;
+            resize: vertical; /* Allow vertical resizing */
         }
         label {
             display: block;
@@ -70,18 +70,18 @@
 
         <button onclick="extractData()">提取数据</button>
 
-        <label for="outputArea" style="margin-top: 20px;">提取结果:</label>
-        <div id="outputArea"></div>
+        <label for="outputArea" style="margin-top: 20px;">提取结果 (可复制):</label>
+        <textarea id="outputArea" readonly></textarea>
     </div>
 
     <script>
         function extractData() {
             const jsonInput = document.getElementById('jsonDataInput').value;
             const outputArea = document.getElementById('outputArea');
-            outputArea.textContent = ''; // 清空上次结果
+            outputArea.value = ''; // 清空上次结果, use .value for textarea
 
             if (!jsonInput.trim()) {
-                outputArea.textContent = '请输入有效的 JSON 数据。';
+                outputArea.value = '请输入有效的 JSON 数据。';
                 return;
             }
 
@@ -92,7 +92,6 @@
                     const commonDate = new Date(commonDateTimestamp).toLocaleDateString();
                     let outputString = `日期: ${commonDate}\n\n`;
 
-                    // 按评分从高到低排序
                     const sortedList = parsedData.data.list.sort((a, b) => b.score - a.score);
 
                     let maxNameLength = 0;
@@ -102,22 +101,21 @@
 
                     const extractedItemsStrings = sortedList.map((item, index) => {
                         const paddedName = item.symbolName.padEnd(maxNameLength, '\u3000');
-                        // 将序号格式化为两位数，不足补零
                         const displayNumber = (index + 1).toString().padStart(2, '0');
                         return `${displayNumber}. ${paddedName}（${item.symbol}），评分：${item.score}`;
                     });
 
                     outputString += extractedItemsStrings.join('\n');
-                    outputArea.textContent = outputString;
+                    outputArea.value = outputString; // Use .value for textarea
 
                 } else if (parsedData && parsedData.data && Array.isArray(parsedData.data.list) && parsedData.data.list.length === 0) {
-                     outputArea.textContent = '数据列表为空，无法提取日期和项目。';
+                     outputArea.value = '数据列表为空，无法提取日期和项目。';
                 }
                 else {
-                    outputArea.textContent = 'JSON 结构不符合预期，请确保包含 data.list 数组且至少包含一个项目。';
+                    outputArea.value = 'JSON 结构不符合预期，请确保包含 data.list 数组且至少包含一个项目。';
                 }
             } catch (error) {
-                outputArea.textContent = 'JSON 解析错误: ' + error.message;
+                outputArea.value = 'JSON 解析错误: ' + error.message;
             }
         }
     </script>
