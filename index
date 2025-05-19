@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 数据提取器</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        textarea {
+            width: 98%;
+            height: 150px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #outputArea {
+            margin-top: 20px;
+            white-space: pre-wrap; /* 保留换行符和空格 */
+            background-color: #e9e9e9;
+            padding: 10px;
+            border-radius: 4px;
+            min-height: 100px;
+            border: 1px solid #ccc;
+            font-family: monospace; /* 等宽字体对对齐很重要 */
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JSON 数据提取器</h1>
+
+        <label for="jsonDataInput">粘贴 JSON 数据:</label>
+        <textarea id="jsonDataInput" placeholder="在此处粘贴 JSON 数据..."></textarea>
+
+        <button onclick="extractData()">提取数据</button>
+
+        <label for="outputArea" style="margin-top: 20px;">提取结果:</label>
+        <div id="outputArea"></div>
+    </div>
+
+    <script>
+        function extractData() {
+            const jsonInput = document.getElementById('jsonDataInput').value;
+            const outputArea = document.getElementById('outputArea');
+            outputArea.textContent = ''; // 清空上次结果
+
+            if (!jsonInput.trim()) {
+                outputArea.textContent = '请输入有效的 JSON 数据。';
+                return;
+            }
+
+            try {
+                const parsedData = JSON.parse(jsonInput);
+                if (parsedData && parsedData.data && Array.isArray(parsedData.data.list) && parsedData.data.list.length > 0) {
+                    const commonDateTimestamp = parsedData.data.list[0].datetime;
+                    const commonDate = new Date(commonDateTimestamp).toLocaleDateString();
+                    let outputString = `日期: ${commonDate}\n\n`;
+
+                    // 按评分从高到低排序
+                    const sortedList = parsedData.data.list.sort((a, b) => b.score - a.score);
+
+                    let maxNameLength = 0;
+                    if (sortedList.length > 0) {
+                        maxNameLength = Math.max(...sortedList.map(item => item.symbolName.length));
+                    }
+
+                    const extractedItemsStrings = sortedList.map((item, index) => {
+                        const paddedName = item.symbolName.padEnd(maxNameLength, '\u3000');
+                        // 将序号格式化为两位数，不足补零
+                        const displayNumber = (index + 1).toString().padStart(2, '0');
+                        return `${displayNumber}. ${paddedName}（${item.symbol}），评分：${item.score}`;
+                    });
+
+                    outputString += extractedItemsStrings.join('\n');
+                    outputArea.textContent = outputString;
+
+                } else if (parsedData && parsedData.data && Array.isArray(parsedData.data.list) && parsedData.data.list.length === 0) {
+                     outputArea.textContent = '数据列表为空，无法提取日期和项目。';
+                }
+                else {
+                    outputArea.textContent = 'JSON 结构不符合预期，请确保包含 data.list 数组且至少包含一个项目。';
+                }
+            } catch (error) {
+                outputArea.textContent = 'JSON 解析错误: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
