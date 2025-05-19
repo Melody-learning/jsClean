@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON 数据提取器</title>
+    <title>A股交易日数据提取器</title>
     <style>
         body {
             font-family: sans-serif;
@@ -20,103 +20,182 @@
         h1 {
             text-align: center;
             color: #333;
+            margin-bottom: 20px;
         }
-        textarea { /* General textarea style */
-            width: 98%;
-            margin-bottom: 10px;
-            padding: 10px;
+        .date-input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+            justify-content: center;
+        }
+        .date-input-container input[type="date"] {
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
         }
-        #jsonDataInput { /* Specific for input */
-             height: 150px;
-        }
-        button {
-            display: block;
-            width: 100%;
-            padding: 10px;
+        .date-input-container button {
+            padding: 8px 16px;
             background-color: #007bff;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
         }
-        button:hover {
+        .date-input-container button:hover {
             background-color: #0056b3;
         }
-        #outputArea { /* Style for the output textarea */
-            margin-top: 10px; /* Adjusted margin */
+        .auto-fetch-button {
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        .auto-fetch-button:hover {
+            background-color: #218838;
+        }
+        textarea#outputArea {
+            width: 98%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 10px;
             white-space: pre-wrap;
             background-color: #e9e9e9;
-            min-height: 200px; /* Increased min-height for better visibility */
+            min-height: 300px;
             font-family: monospace;
-            resize: vertical; /* Allow vertical resizing */
+            resize: vertical;
         }
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
         }
+        .note {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>JSON 数据提取器</h1>
+        <h1>A股交易日数据</h1>
+        
+        <div class="date-input-container">
+            <input type="date" id="dateInput" />
+            <button onclick="fetchDataForSelectedDate()">获取数据</button>
+            <button class="auto-fetch-button" onclick="fetchAndDisplayData()">自动获取上个交易日</button>
+        </div>
+        <div class="note">提示：自动获取功能仅考虑周末，法定节假日请手动选择日期</div>
 
-        <label for="jsonDataInput">粘贴 JSON 数据:</label>
-        <textarea id="jsonDataInput" placeholder="在此处粘贴 JSON 数据..."></textarea>
-
-        <button onclick="extractData()">提取数据</button>
-
-        <label for="outputArea" style="margin-top: 20px;">提取结果 (可复制):</label>
-        <textarea id="outputArea" readonly></textarea>
+        <label for="outputArea" id="outputLabel">数据加载状态:</label>
+        <textarea id="outputArea" readonly>正在计算上一个交易日并准备获取数据...</textarea>
     </div>
 
     <script>
-        function extractData() {
-            const jsonInput = document.getElementById('jsonDataInput').value;
-            const outputArea = document.getElementById('outputArea');
-            outputArea.value = ''; // 清空上次结果, use .value for textarea
+        // 设置日期输入框的默认值为昨天
+        window.onload = function() {
+            const dateInput = document.getElementById('dateInput');
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            dateInput.value = yesterday.toISOString().split('T')[0];
+            
+            // 自动获取上个交易日数据
+            fetchAndDisplayData();
+        }
 
-            if (!jsonInput.trim()) {
-                outputArea.value = '请输入有效的 JSON 数据。';
-                return;
+        function getPreviousTradingDayFormatted() {
+            let date = new Date();
+            let dayOfWeek = date.getDay();
+
+            if (dayOfWeek === 0) {
+                date.setDate(date.getDate() - 2);
+            } else if (dayOfWeek === 1) {
+                date.setDate(date.getDate() - 3);
+            } else {
+                date.setDate(date.getDate() - 1);
             }
+
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            
+            return `${year}-${month}-${day}`;
+        }
+
+        async function fetchDataForDate(targetDate) {
+            const outputArea = document.getElementById('outputArea');
+            const outputLabel = document.getElementById('outputLabel');
+            
+            outputLabel.textContent = `正在加载 ${targetDate} 的数据...`;
+            outputArea.value = `正在获取 ${targetDate} 的数据，请稍候...\n请确保您的设备已连接到互联网。`;
+
+            const apiUrl = `http://back.ailhw.com/app-api/factor/page?data=M200&pageNo=1&pageSize=100&datetime=${targetDate}`;
 
             try {
-                const parsedData = JSON.parse(jsonInput);
-                if (parsedData && parsedData.data && Array.isArray(parsedData.data.list) && parsedData.data.list.length > 0) {
-                    const commonDateTimestamp = parsedData.data.list[0].datetime;
-                    const commonDate = new Date(commonDateTimestamp).toLocaleDateString();
-                    let outputString = `日期: ${commonDate}\n\n`;
-
-                    const sortedList = parsedData.data.list.sort((a, b) => b.score - a.score);
-
-                    let maxNameLength = 0;
-                    if (sortedList.length > 0) {
-                        maxNameLength = Math.max(...sortedList.map(item => item.symbolName.length));
-                    }
-
-                    const extractedItemsStrings = sortedList.map((item, index) => {
-                        const paddedName = item.symbolName.padEnd(maxNameLength, '\u3000');
-                        const displayNumber = (index + 1).toString().padStart(2, '0');
-                        return `${displayNumber}. ${paddedName}（${item.symbol}），评分：${item.score}`;
-                    });
-
-                    outputString += extractedItemsStrings.join('\n');
-                    outputArea.value = outputString; // Use .value for textarea
-
-                } else if (parsedData && parsedData.data && Array.isArray(parsedData.data.list) && parsedData.data.list.length === 0) {
-                     outputArea.value = '数据列表为空，无法提取日期和项目。';
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`网络请求失败: ${response.status} ${response.statusText}`);
                 }
-                else {
-                    outputArea.value = 'JSON 结构不符合预期，请确保包含 data.list 数组且至少包含一个项目。';
+                const parsedData = await response.json();
+
+                if (parsedData.code !== 0 || !parsedData.data || !Array.isArray(parsedData.data.list)) {
+                    const apiMsg = parsedData.msg ? ` (${parsedData.msg})` : '';
+                    throw new Error(`API返回数据格式不正确或包含错误${apiMsg}。`);
                 }
+
+                if (parsedData.data.list.length === 0) {
+                    outputLabel.textContent = `数据加载完成 (${targetDate}):`;
+                    outputArea.value = `日期: ${targetDate}\n\n指定日期 (${targetDate}) 的数据列表为空。\n这可能意味着该日期不是交易日或当日无数据。`;
+                    return;
+                }
+
+                let outputString = `数据日期: ${targetDate}\n\n`;
+                const sortedList = parsedData.data.list.sort((a, b) => b.score - a.score);
+                
+                let maxNameLength = 0;
+                if (sortedList.length > 0) {
+                    maxNameLength = Math.max(...sortedList.map(item => (item.symbolName || "").length));
+                }
+
+                const extractedItemsStrings = sortedList.map((item, index) => {
+                    const symbolName = item.symbolName || "未知名称";
+                    const paddedName = symbolName.padEnd(maxNameLength, '\u3000');
+                    const displayNumber = (index + 1).toString().padStart(2, '0');
+                    return `${displayNumber}. ${paddedName}（${item.symbol || "未知代码"}），评分：${item.score !== undefined ? item.score : "N/A"}`;
+                });
+
+                outputString += extractedItemsStrings.join('\n');
+                outputLabel.textContent = `数据加载完成 (${targetDate}):`;
+                outputArea.value = outputString;
+
             } catch (error) {
-                outputArea.value = 'JSON 解析错误: ' + error.message;
+                outputLabel.textContent = `数据加载失败 (${targetDate}):`;
+                outputArea.value = `获取数据失败: ${error.message}\n\n请检查:\n1. 网络连接是否正常。\n2. API地址是否可访问。\n3. 选择的日期 (${targetDate}) 是否有有效数据。\n\nAPI URL (供调试): ${apiUrl}`;
+                console.error("获取或处理数据时发生错误:", error);
             }
+        }
+
+        function fetchDataForSelectedDate() {
+            const dateInput = document.getElementById('dateInput');
+            const selectedDate = dateInput.value;
+            if (selectedDate) {
+                fetchDataForDate(selectedDate);
+            }
+        }
+
+        async function fetchAndDisplayData() {
+            const previousTradingDay = getPreviousTradingDayFormatted();
+            await fetchDataForDate(previousTradingDay);
         }
     </script>
 </body>
